@@ -9,7 +9,7 @@ COURSE_CATALOG = {
         "credits": 3,
         "schedule": ["Mon 09:00-10:30", "Wed 09:00-10:30"],
         "prerequisites": [],
-        "tags": ["programming", "python", "foundation"],
+        "tags": ["programming", "python", "foundation", "beginner"],
         "description": "Môn nhập môn lập trình với Python cho sinh viên năm nhất.",
     },
     "CS201": {
@@ -41,6 +41,16 @@ COURSE_CATALOG = {
         "prerequisites": ["CS201"],
         "tags": ["ai", "machine learning", "intelligent systems"],
         "description": "Tổng quan về AI, tìm kiếm, biểu diễn tri thức và ML cơ bản.",
+    },
+    "AI210": {
+        "name": "AI Foundations for Beginners",
+        "major": "computer science",
+        "semester": "fall",
+        "credits": 4,
+        "schedule": ["Fri 09:00-11:00"],
+        "prerequisites": ["CS101"],
+        "tags": ["ai", "foundation", "beginner", "intelligent systems"],
+        "description": "Môn nhập môn AI dành cho sinh viên đã có nền tảng lập trình cơ bản.",
     },
     "DS220": {
         "name": "Business Data Analysis",
@@ -84,6 +94,10 @@ STUDY_PLAN_LIBRARY = {
 }
 
 
+def _is_blank(value) -> bool:
+    return value is None or str(value).strip() == ""
+
+
 def _normalize_text(value: str) -> str:
     """
     Normalize text for case-insensitive matching.
@@ -91,7 +105,31 @@ def _normalize_text(value: str) -> str:
     Args:
         value (str): Chuỗi đầu vào cần chuẩn hóa.
     """
-    return value.strip().lower()
+    if value is None:
+        return ""
+    return str(value).strip().lower()
+
+
+def _normalize_course_code(course_code) -> str:
+    if course_code is None:
+        return ""
+    return str(course_code).strip().upper()
+
+
+def _normalize_course_list(course_list):
+    if not isinstance(course_list, list):
+        return None
+    return [_normalize_course_code(course) for course in course_list if not _is_blank(course)]
+
+
+def _normalize_int(value):
+    if value is None or value == "":
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str) and value.strip().isdigit():
+        return int(value.strip())
+    return None
 
 
 def _course_exists(course_code: str) -> tuple[bool, str]:
@@ -101,11 +139,17 @@ def _course_exists(course_code: str) -> tuple[bool, str]:
     Args:
         course_code (str): Mã môn cần kiểm tra.
     """
-    normalized_code = course_code.strip().upper()
+    normalized_code = _normalize_course_code(course_code)
     return normalized_code in COURSE_CATALOG, normalized_code
 
 
-def search_courses(student_major: str, interest: str, semester: str = "fall") -> str:
+def search_courses(
+    student_major: str = "",
+    interest: str = "",
+    semester: str = "fall",
+    level: str = "",
+    max_credits: int | None = None,
+) -> str:
     """
     Suggest courses that match a student's major, interest, and semester.
 
@@ -113,30 +157,51 @@ def search_courses(student_major: str, interest: str, semester: str = "fall") ->
         student_major (str): Ngành học của sinh viên.
         interest (str): Sở thích hoặc hướng quan tâm học tập.
         semester (str): Học kỳ cần tra cứu.
+        level (str): Trình độ mong muốn, ví dụ beginner hoặc advanced.
+        max_credits (int | None): Giới hạn số tín chỉ tối đa cho mỗi môn.
     """
-    major = _normalize_text(student_major)
     desired_interest = _normalize_text(interest)
+    major = _normalize_text(student_major)
     selected_semester = _normalize_text(semester)
+    desired_level = _normalize_text(level)
+    normalized_max_credits = _normalize_int(max_credits)
 
-    if not major or not desired_interest:
-        return "LỖI: Cần cung cấp đầy đủ student_major và interest để gợi ý môn học."
+    if not desired_interest:
+        return "LỖI: Cần cung cấp interest để gợi ý môn học."
+
+    if max_credits not in (None, "") and normalized_max_credits is None:
+        return "LỖI: max_credits phải là số nguyên hợp lệ."
+
+    if major in {"all", "any", "*"}:
+        major = ""
+    if selected_semester in {"all", "all_semester", "any", "*"}:
+        selected_semester = ""
 
     matches = []
     for course_code, course in COURSE_CATALOG.items():
-        same_major = course["major"] == major
-        same_semester = course["semester"] == selected_semester
+        same_major = not major or course["major"] == major
+        same_semester = not selected_semester or course["semester"] == selected_semester
         interest_matched = any(desired_interest in tag for tag in course["tags"])
-        if same_major and same_semester and interest_matched:
+        level_matched = not desired_level or any(desired_level in tag for tag in course["tags"])
+        credit_matched = normalized_max_credits is None or course["credits"] <= normalized_max_credits
+        if same_major and same_semester and interest_matched and level_matched and credit_matched:
             matches.append(
                 f"- {course_code}: {course['name']} ({course['credits']} tín chỉ) | "
-                f"Lịch: {', '.join(course['schedule'])}"
+                f"Lịch: {', '.join(course['schedule'])} | "
+                f"Tiên quyết: {', '.join(course['prerequisites']) if course['prerequisites'] else 'Không có'}"
             )
 
     if not matches:
-        return (
-            f"LỖI: Không tìm thấy môn phù hợp cho ngành '{student_major}', "
-            f"sở thích '{interest}' trong học kỳ '{semester}'."
-        )
+        filters = [f"sở thích '{interest}'"]
+        if major:
+            filters.insert(0, f"ngành '{student_major}'")
+        if selected_semester:
+            filters.append(f"học kỳ '{semester}'")
+        if desired_level:
+            filters.append(f"trình độ '{level}'")
+        if normalized_max_credits is not None:
+            filters.append(f"tối đa {normalized_max_credits} tín chỉ")
+        return "LỖI: Không tìm thấy môn phù hợp với " + ", ".join(filters) + "."
 
     return "Các môn phù hợp:\n" + "\n".join(matches)
 
@@ -150,10 +215,16 @@ def check_prerequisites(course_code: str, completed_courses: list[str]) -> str:
         completed_courses (list[str]): Danh sách mã môn đã hoàn thành.
     """
     exists, normalized_code = _course_exists(course_code)
+    if not normalized_code:
+        return "LỖI: Cần cung cấp course_code hợp lệ."
     if not exists:
         return f"LỖI: Không tồn tại môn học với mã '{course_code}'."
 
-    completed_set = {course.strip().upper() for course in completed_courses}
+    normalized_completed_courses = _normalize_course_list(completed_courses)
+    if normalized_completed_courses is None:
+        return "LỖI: completed_courses phải là danh sách mã môn."
+
+    completed_set = set(normalized_completed_courses)
     prerequisites = COURSE_CATALOG[normalized_code]["prerequisites"]
     missing = [course for course in prerequisites if course not in completed_set]
 
@@ -176,14 +247,17 @@ def calculate_total_credits(selected_courses: list[str]) -> str:
     Args:
         selected_courses (list[str]): Danh sách mã môn đã chọn.
     """
-    if not selected_courses:
+    normalized_courses = _normalize_course_list(selected_courses)
+    if normalized_courses is None:
+        return "LỖI: selected_courses phải là danh sách mã môn."
+    if not normalized_courses:
         return "LỖI: Danh sách selected_courses đang trống."
 
     total_credits = 0
     unknown_courses = []
     valid_courses = []
 
-    for course_code in selected_courses:
+    for course_code in normalized_courses:
         exists, normalized_code = _course_exists(course_code)
         if not exists:
             unknown_courses.append(course_code)
@@ -204,13 +278,16 @@ def check_schedule_conflict(selected_courses: list[str]) -> str:
     Args:
         selected_courses (list[str]): Danh sách mã môn cần kiểm tra trùng lịch.
     """
-    if len(selected_courses) < 2:
+    normalized_courses = _normalize_course_list(selected_courses)
+    if normalized_courses is None:
+        return "LỖI: selected_courses phải là danh sách mã môn."
+    if len(normalized_courses) < 2:
         return "LỖI: Cần ít nhất 2 môn để kiểm tra xung đột lịch."
 
     unknown_courses = []
     schedule_map = {}
 
-    for course_code in selected_courses:
+    for course_code in normalized_courses:
         exists, normalized_code = _course_exists(course_code)
         if not exists:
             unknown_courses.append(course_code)
@@ -246,6 +323,9 @@ def suggest_study_plan(goal: str, available_time: str) -> str:
     """
     normalized_goal = _normalize_text(goal)
     normalized_time = _normalize_text(available_time)
+
+    if not normalized_goal:
+        return "LỖI: Cần cung cấp goal để gợi ý lộ trình học."
 
     if normalized_goal not in STUDY_PLAN_LIBRARY:
         return f"LỖI: Chưa có lộ trình mẫu cho mục tiêu '{goal}'."
