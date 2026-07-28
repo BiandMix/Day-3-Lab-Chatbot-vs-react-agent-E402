@@ -1,0 +1,24 @@
+flowchart TD
+    A[Nhận câu hỏi của sinh viên] --> B{Có cần dữ liệu khóa học cụ thể?}
+    B -- Không --> C[Chatbot path]
+    C --> D[Trả lời kiến thức hoặc lời khuyên tổng quát]
+    B -- Có --> E{Yêu cầu có thuộc phạm vi tư vấn?}
+    E -- Không --> F[Safe fallback]
+    F --> G[Giải thích giới hạn và hướng dẫn bước tiếp theo]
+    E -- Có --> H[ReAct Agent path]
+    H --> I[Phân tích tiêu chí tìm kiếm]
+    I --> J[Action: search_courses]
+    J --> K[Observation: danh sách khóa học]
+    K --> L{Có kết quả phù hợp?}
+    L -- Không --> F
+    L -- Có --> M{Cần kiểm tra điều kiện tiên quyết?}
+    M -- Không --> N[Tổng hợp đề xuất có căn cứ]
+    M -- Có --> O[Action: check_prerequisites]
+    O --> P[Observation: trạng thái đủ điều kiện]
+    P --> Q{Đủ điều kiện?}
+    Q -- Có --> N
+    Q -- Không --> R[Đề xuất môn nền tảng hoặc lựa chọn khác]
+    R --> N
+    N --> S[Final Answer]
+    H --> T{Đạt MAX_ITERATIONS hoặc lỗi không phục hồi?}
+    T -- Có --> F
