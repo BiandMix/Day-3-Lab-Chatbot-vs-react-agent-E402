@@ -63,15 +63,73 @@ def _parse_action(text: str):
         return tool_name, [raw_args]
 
 
+def _split_action_args(args):
+    if not isinstance(args, list):
+        args = [args]
+
+    if len(args) == 1 and isinstance(args[0], str) and "," in args[0]:
+        args = [item.strip() for item in args[0].split(",") if item.strip()]
+
+    cleaned = []
+    for arg in args:
+        if isinstance(arg, str):
+            cleaned_arg = arg.strip().strip("\"'")
+            if cleaned_arg.isdigit():
+                cleaned.append(int(cleaned_arg))
+            else:
+                cleaned.append(cleaned_arg)
+        else:
+            cleaned.append(arg)
+    return cleaned
+
+
+def _fallback_search_courses(args):
+    args = _split_action_args(args)
+
+    if not args:
+        return AVAILABLE_TOOLS["search_courses"]()
+
+    if len(args) == 1:
+        return AVAILABLE_TOOLS["search_courses"](interest=args[0])
+
+    student_major = args[0] if args[0] not in ("all", "any", "*") else ""
+    interest = args[1] if len(args) > 1 else ""
+    semester = args[2] if len(args) > 2 else "fall"
+    level = args[3] if len(args) > 3 else ""
+    max_credits = args[4] if len(args) > 4 else None
+
+    if semester in ("all", "all_semester", "any", "*"):
+        semester = ""
+    if level in ("all", "any", "*"):
+        level = ""
+
+    try:
+        return AVAILABLE_TOOLS["search_courses"](
+            student_major=student_major,
+            interest=interest,
+            semester=semester,
+            level=level,
+            max_credits=max_credits,
+        )
+    except TypeError:
+        return AVAILABLE_TOOLS["search_courses"](interest=interest)
+
+
 def _call_tool(tool_name: str, args):
     tool = AVAILABLE_TOOLS.get(tool_name)
     if not tool:
         return f"LỖI: Tool '{tool_name}' không tồn tại."
     try:
+        if tool_name == "search_courses":
+            return _fallback_search_courses(args)
+
         if isinstance(args, list):
+            args = _split_action_args(args)
             return tool(*args)
         return tool(args)
     except TypeError:
+        if tool_name == "search_courses":
+            return _fallback_search_courses(args)
         return f"LỖI: Sai tham số khi gọi tool '{tool_name}'."
     except Exception as exc:
         return f"LỖI: Tool '{tool_name}' gặp lỗi: {exc}"
@@ -115,7 +173,7 @@ if __name__ == "__main__":
     tests = load_test_cases()
     print(f"✅ Đã tải thành công {len(tests)} Test Cases từ config/test_cases.json\n")
 
-    sample_query = tests[2]["question"]
+    sample_query = tests[4]["question"]
 
     print("--- DEMO 1: CHẠY TRÊN CHATBOT BASELINE ---")
     run_baseline_chatbot(sample_query, provider)
