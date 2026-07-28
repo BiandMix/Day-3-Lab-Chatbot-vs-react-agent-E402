@@ -1,3 +1,6 @@
+"""Tool registry for the student course advisor agent."""
+
+# Danh mục môn học mẫu để Agent tra cứu.
 COURSE_CATALOG = {
     "CS101": {
         "name": "Introduction to Programming",
@@ -61,7 +64,7 @@ COURSE_CATALOG = {
     },
 }
 
-
+# Lộ trình học mẫu theo mục tiêu nghề nghiệp.
 STUDY_PLAN_LIBRARY = {
     "ai engineer": [
         "CS101 để xây nền tảng lập trình.",
@@ -79,14 +82,38 @@ STUDY_PLAN_LIBRARY = {
         "CS210 nếu muốn tăng kỹ năng truy vấn dữ liệu.",
     ],
 }
+
+
 def _normalize_text(value: str) -> str:
+    """
+    Normalize text for case-insensitive matching.
+
+    Args:
+        value (str): Chuỗi đầu vào cần chuẩn hóa.
+    """
     return value.strip().lower()
 
 
 def _course_exists(course_code: str) -> tuple[bool, str]:
+    """
+    Return whether a course code exists and its normalized form.
+
+    Args:
+        course_code (str): Mã môn cần kiểm tra.
+    """
     normalized_code = course_code.strip().upper()
     return normalized_code in COURSE_CATALOG, normalized_code
+
+
 def search_courses(student_major: str, interest: str, semester: str = "fall") -> str:
+    """
+    Suggest courses that match a student's major, interest, and semester.
+
+    Args:
+        student_major (str): Ngành học của sinh viên.
+        interest (str): Sở thích hoặc hướng quan tâm học tập.
+        semester (str): Học kỳ cần tra cứu.
+    """
     major = _normalize_text(student_major)
     desired_interest = _normalize_text(interest)
     selected_semester = _normalize_text(semester)
@@ -112,7 +139,16 @@ def search_courses(student_major: str, interest: str, semester: str = "fall") ->
         )
 
     return "Các môn phù hợp:\n" + "\n".join(matches)
+
+
 def check_prerequisites(course_code: str, completed_courses: list[str]) -> str:
+    """
+    Check whether the student has completed the prerequisites for a course.
+
+    Args:
+        course_code (str): Mã môn cần kiểm tra tiên quyết.
+        completed_courses (list[str]): Danh sách mã môn đã hoàn thành.
+    """
     exists, normalized_code = _course_exists(course_code)
     if not exists:
         return f"LỖI: Không tồn tại môn học với mã '{course_code}'."
@@ -131,7 +167,15 @@ def check_prerequisites(course_code: str, completed_courses: list[str]) -> str:
         )
 
     return f"ĐỦ ĐIỀU KIỆN: Sinh viên đã hoàn thành đầy đủ tiên quyết cho môn {normalized_code}."
+
+
 def calculate_total_credits(selected_courses: list[str]) -> str:
+    """
+    Calculate the total credits for a list of selected courses.
+
+    Args:
+        selected_courses (list[str]): Danh sách mã môn đã chọn.
+    """
     if not selected_courses:
         return "LỖI: Danh sách selected_courses đang trống."
 
@@ -150,10 +194,16 @@ def calculate_total_credits(selected_courses: list[str]) -> str:
     if unknown_courses:
         return f"LỖI: Không tìm thấy các mã môn sau: {', '.join(unknown_courses)}."
 
-    return (
-        f"Tổng số tín chỉ của {', '.join(valid_courses)} là {total_credits} tín chỉ."
-    )
+    return f"Tổng số tín chỉ của {', '.join(valid_courses)} là {total_credits} tín chỉ."
+
+
 def check_schedule_conflict(selected_courses: list[str]) -> str:
+    """
+    Check whether any selected courses have overlapping schedules.
+
+    Args:
+        selected_courses (list[str]): Danh sách mã môn cần kiểm tra trùng lịch.
+    """
     if len(selected_courses) < 2:
         return "LỖI: Cần ít nhất 2 môn để kiểm tra xung đột lịch."
 
@@ -173,7 +223,7 @@ def check_schedule_conflict(selected_courses: list[str]) -> str:
     conflicts = []
     course_codes = list(schedule_map.keys())
     for index, first_code in enumerate(course_codes):
-        for second_code in course_codes[index + 1:]:
+        for second_code in course_codes[index + 1 :]:
             overlap = set(schedule_map[first_code]) & set(schedule_map[second_code])
             if overlap:
                 conflicts.append(
@@ -184,7 +234,16 @@ def check_schedule_conflict(selected_courses: list[str]) -> str:
         return "PHÁT HIỆN XUNG ĐỘT LỊCH:\n" + "\n".join(f"- {item}" for item in conflicts)
 
     return "KHÔNG CÓ XUNG ĐỘT: Các môn đã chọn không bị trùng lịch."
+
+
 def suggest_study_plan(goal: str, available_time: str) -> str:
+    """
+    Suggest a basic study plan based on a career goal and available time.
+
+    Args:
+        goal (str): Mục tiêu nghề nghiệp hoặc hướng phát triển.
+        available_time (str): Mức thời gian có thể dành cho việc học.
+    """
     normalized_goal = _normalize_text(goal)
     normalized_time = _normalize_text(available_time)
 
@@ -207,6 +266,9 @@ def suggest_study_plan(goal: str, available_time: str) -> str:
         f"{recommended_steps}\n"
         f"Khuyến nghị tải học tập: {pacing}"
     )
+
+
+# Registry các tool mà Agent được phép gọi.
 AVAILABLE_TOOLS = {
     "search_courses": search_courses,
     "check_prerequisites": check_prerequisites,
